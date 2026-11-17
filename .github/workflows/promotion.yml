@@ -1,0 +1,84 @@
+# Demonstration pipeline for Promotion.
+# Interviewers: this file shows stage order only. It is not a production promotion.
+# It starts only when someone runs it by hand (workflow_dispatch).
+# It does not run on push. Publish needs registry secrets. Promotion needs
+# PROD_DEPLOY_TOKEN. Both are listed in README.md.
+
+name: Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Existing image tag to publish and promote
+        required: true
+        default: release
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: ${{ vars.IMAGE_NAME || 'freelancetrack' }}
+
+jobs:
+  initialize:
+    name: Initialize
+    runs-on: ubuntu-latest
+    environment: Promotion
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record the demonstration environment
+        run: |
+          echo "Environment: Promotion"
+          echo "Trigger: workflow_dispatch only"
+          echo "Image tag: ${{ inputs.image_tag }}"
+          echo "This workflow is a demonstration of stage order."
+          test -f server/Dockerfile
+          test -f client/Dockerfile
+
+  publish-container:
+    name: Publish Container
+    needs: initialize
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and push when registry secrets exist
+        env:
+          REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          tag="${{ inputs.image_tag }}"
+          echo "Publish Container stage."
+          echo "Required secrets: REGISTRY_URL, REGISTRY_USERNAME, REGISTRY_PASSWORD."
+          if [ -z "${REGISTRY_URL}" ] || [ -z "${REGISTRY_USERNAME}" ] || [ -z "${REGISTRY_PASSWORD}" ]; then
+            echo "Registry secrets are not set. Images were not pushed."
+            echo "Demonstration complete."
+            exit 0
+          fi
+          echo "${REGISTRY_PASSWORD}" | docker login "${REGISTRY_URL}" --username "${REGISTRY_USERNAME}" --password-stdin
+          docker build -t "${REGISTRY_URL}/${IMAGE_NAME}-server:${tag}" ./server
+          docker build -t "${REGISTRY_URL}/${IMAGE_NAME}-client:${tag}" ./client
+          docker push "${REGISTRY_URL}/${IMAGE_NAME}-server:${tag}"
+          docker push "${REGISTRY_URL}/${IMAGE_NAME}-client:${tag}"
+
+  promotion:
+    name: Promotion
+    needs: publish-container
+    runs-on: ubuntu-latest
+    environment: Promotion
+    steps:
+      - name: Demonstration promotion
+        env:
+          PROD_DEPLOY_TOKEN: ${{ secrets.PROD_DEPLOY_TOKEN }}
+          REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
+        run: |
+          tag="${{ inputs.image_tag }}"
+          echo "Promotion stage. Move ${IMAGE_NAME}:${tag} from Release into the production target."
+          if [ -z "${PROD_DEPLOY_TOKEN}" ]; then
+            echo "PROD_DEPLOY_TOKEN is not set. Create it before this stage can change a production target."
+            echo "Registry host (if set): ${REGISTRY_URL:-not set}"
+            echo "Demonstration complete."
+            exit 0
+          fi
+          echo "PROD_DEPLOY_TOKEN is present. Connect the production promotion command here."

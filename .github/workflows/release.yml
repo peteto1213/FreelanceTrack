@@ -1,0 +1,110 @@
+# Demonstration pipeline for the Release environment.
+# Interviewers: this file shows stage order only. It is not a production release.
+# It starts only when someone runs it by hand (workflow_dispatch).
+# It does not run on push. Create the secrets and variables in README.md
+# before a deploy step can reach a real Release target.
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Tag recorded on the images built in this run
+        required: false
+        default: release
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: ${{ vars.IMAGE_NAME || 'freelancetrack' }}
+
+jobs:
+  initialize:
+    name: Initialize
+    runs-on: ubuntu-latest
+    environment: Release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record the demonstration environment
+        run: |
+          echo "Environment: Release"
+          echo "Trigger: workflow_dispatch only"
+          echo "Image tag: ${{ inputs.image_tag }}"
+          echo "This workflow is a demonstration of stage order."
+          test -f server/package.json
+          test -f client/package.json
+
+  test:
+    name: Test
+    needs: initialize
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+      - name: Install, test, and typecheck
+        run: |
+          npm ci --prefix server
+          npm ci --prefix client
+          npm test --prefix server
+          npm run typecheck --prefix server
+          npm run typecheck --prefix client
+
+  build-code:
+    name: Build Code
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+      - name: Install and compile
+        run: |
+          npm ci --prefix server
+          npm ci --prefix client
+          npm run build --prefix server
+          npm run build --prefix client
+
+  build-container:
+    name: Build Container
+    needs: build-code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images locally on the runner
+        run: |
+          tag="${{ inputs.image_tag }}"
+          docker build -t "${IMAGE_NAME}-server:${tag}" ./server
+          docker build -t "${IMAGE_NAME}-client:${tag}" ./client
+          echo "Images were built on the runner and were not pushed. Publish is the Promotion workflow."
+
+  deploy:
+    name: Deploy
+    needs: build-container
+    runs-on: ubuntu-latest
+    environment: Release
+    steps:
+      - name: Demonstration deploy to Release
+        env:
+          RELEASE_DEPLOY_TOKEN: ${{ secrets.RELEASE_DEPLOY_TOKEN }}
+        run: |
+          echo "Deploy stage for the Release environment."
+          echo "Tag: ${{ inputs.image_tag }}"
+          if [ -z "${RELEASE_DEPLOY_TOKEN}" ]; then
+            echo "RELEASE_DEPLOY_TOKEN is not set. Create it before this stage can reach a real Release target."
+            echo "Demonstration complete."
+            exit 0
+          fi
+          echo "RELEASE_DEPLOY_TOKEN is present. Connect the deploy command for your Release target here."

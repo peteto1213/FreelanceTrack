@@ -1,0 +1,73 @@
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
+
+  server:
+    build: ./server
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/freelancetrack
+      NODE_ENV: production
+      PORT: "5050"
+      LOG_DIR: /app/logs
+      LOG_TO_FILE: "true"
+      LOG_PRETTY: "false"
+      CLIENT_ORIGIN: http://localhost:3030
+    ports:
+      - "5050:5050"
+    volumes:
+      - ./server/logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:5050/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  client:
+    build: ./client
+    restart: unless-stopped
+    ports:
+      - "3030:80"
+    depends_on:
+      server:
+        condition: service_healthy
+
+  seed:
+    build: ./server
+    profiles: ["seed"]
+    env_file: .env
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/freelancetrack
+      NODE_ENV: production
+      LOG_TO_FILE: "false"
+      LOG_PRETTY: "false"
+    command: ["node", "dist/seed.js"]
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  mongo_data:

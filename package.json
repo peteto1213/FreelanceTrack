@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "npm test --prefix server",
+    "typecheck": "npm run typecheck --prefix server && npm run typecheck --prefix client",
+    "build": "npm run build --prefix server && npm run build --prefix client"
+  }
+}

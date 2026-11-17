@@ -1,0 +1,156 @@
+# Demonstration pipeline for the DEV environment.
+# Interviewers: these GitHub Actions files show stage order only.
+# They are not a production deployment system.
+# DEV is the only workflow that starts by itself, and only for branch names
+# that start with "dev". Release and Promotion start only from workflow_dispatch.
+# Create the secrets and variables in README.md before scan, deploy, or
+# registry steps can talk to a real system. Missing secrets do not fail this
+# demonstration; the stage prints what it would have called.
+
+name: DEV
+
+on:
+  push:
+    branches:
+      - "dev*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: ${{ vars.IMAGE_NAME || 'freelancetrack' }}
+
+jobs:
+  initialize:
+    name: Initialize
+    runs-on: ubuntu-latest
+    environment: DEV
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Record the demonstration environment
+        run: |
+          echo "Environment: DEV"
+          echo "This workflow is a demonstration of stage order."
+          echo "Image name: ${IMAGE_NAME}"
+          test -f server/package.json
+          test -f client/package.json
+          test -f docker-compose.yml
+
+  test:
+    name: Test
+    needs: initialize
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+      - name: Install
+        run: |
+          npm ci --prefix server
+          npm ci --prefix client
+      - name: API tests and typecheck
+        run: |
+          npm test --prefix server
+          npm run typecheck --prefix server
+          npm run typecheck --prefix client
+
+  build-code:
+    name: Build Code
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+      - name: Install and compile
+        run: |
+          npm ci --prefix server
+          npm ci --prefix client
+          npm run build --prefix server
+          npm run build --prefix client
+
+  code-scan:
+    name: Code Scan
+    needs: build-code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Demonstration code scan
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          FORTIFY_CLIENT_TOKEN: ${{ secrets.FORTIFY_CLIENT_TOKEN }}
+          FORTIFY_URL: ${{ secrets.FORTIFY_URL }}
+          NEXUS_IQ_URL: ${{ secrets.NEXUS_IQ_URL }}
+          NEXUS_IQ_AUTH: ${{ secrets.NEXUS_IQ_AUTH }}
+        run: |
+          echo "Code Scan stage (DEV demonstration)."
+          echo "Tools: SonarQube, Fortify, Sonatype Nexus IQ."
+          echo "Required secrets: SONAR_TOKEN, SONAR_HOST_URL, FORTIFY_CLIENT_TOKEN, FORTIFY_URL, NEXUS_IQ_URL, NEXUS_IQ_AUTH."
+          ran=0
+          if [ -n "${SONAR_TOKEN}" ] && [ -n "${SONAR_HOST_URL}" ] && command -v sonar-scanner >/dev/null 2>&1; then
+            sonar-scanner
+            ran=1
+          else
+            echo "SonarQube scanner was not run. Add the secrets and install sonar-scanner on the runner."
+          fi
+          if [ -n "${FORTIFY_CLIENT_TOKEN}" ] && [ -n "${FORTIFY_URL}" ] && { command -v sourceanalyzer >/dev/null 2>&1 || command -v scancentral >/dev/null 2>&1; }; then
+            bash security/fortify-scan.sh
+            ran=1
+          else
+            echo "Fortify was not run. Add the secrets and install sourceanalyzer or scancentral on the runner."
+          fi
+          if [ -n "${NEXUS_IQ_URL}" ] && [ -n "${NEXUS_IQ_AUTH}" ] && [ -f "${NEXUS_IQ_CLI:-nexus-iq-cli.jar}" ]; then
+            bash security/nexus-iq.sh
+            ran=1
+          else
+            echo "Nexus IQ was not run. Add the secrets and place nexus-iq-cli.jar on the runner."
+          fi
+          if [ "$ran" -eq 0 ]; then
+            echo "No scanner executed. This stage still succeeds so the demonstration pipeline can be shown."
+          fi
+
+  build-container:
+    name: Build Container
+    needs: code-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images locally on the runner
+        run: |
+          docker build -t "${IMAGE_NAME}-server:${GITHUB_SHA}" ./server
+          docker build -t "${IMAGE_NAME}-client:${GITHUB_SHA}" ./client
+          echo "Images were built on the runner and were not pushed."
+
+  deploy:
+    name: Deploy
+    needs: build-container
+    runs-on: ubuntu-latest
+    environment: DEV
+    steps:
+      - name: Demonstration deploy to DEV
+        env:
+          DEV_DEPLOY_TOKEN: ${{ secrets.DEV_DEPLOY_TOKEN }}
+        run: |
+          echo "Deploy stage for the DEV environment."
+          echo "A real deploy would use DEV_DEPLOY_TOKEN and the image ${IMAGE_NAME}-server:${GITHUB_SHA}."
+          if [ -z "${DEV_DEPLOY_TOKEN}" ]; then
+            echo "DEV_DEPLOY_TOKEN is not set. Create it before this stage can reach a real DEV target."
+            echo "Demonstration complete."
+            exit 0
+          fi
+          echo "DEV_DEPLOY_TOKEN is present. Connect the deploy command for your DEV target here."
