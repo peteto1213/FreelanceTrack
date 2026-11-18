@@ -24,7 +24,6 @@ services:
       LOG_DIR: /app/logs
       LOG_TO_FILE: "true"
       LOG_PRETTY: "false"
-      CLIENT_ORIGIN: http://localhost:3030
     ports:
       - "5050:5050"
     volumes:

@@ -139,7 +139,7 @@ APP_TIMEZONE=Asia/Hong_Kong
 Rules:
 
 - `JWT_SECRET` must be at least 16 characters. The `openssl` line is long enough.
-- `CLIENT_ORIGIN` must be the exact address you will type in the browser, including `http://` and `:3030`, with no slash at the end. If this does not match, the sign-in button answers with an error.
+- `CLIENT_ORIGIN` must be the exact address you will type in the browser, including `http://` and `:3030`, with no slash at the end. If this does not match, sign-in answers `Origin is not allowed`. `http://localhost:3030` and an IP address are different. The API container reads this value from `.env`.
 - `APP_TIMEZONE` is your zone. `Asia/Hong_Kong` is correct for Hong Kong. Other examples: `Asia/Singapore`, `UTC`.
 
 In nano, save with `Ctrl+O`, press Enter, then leave with `Ctrl+X`.
@@ -190,7 +190,7 @@ http://203.0.113.10:3030
 
 Sign in with `ADMIN_USER` and `ADMIN_PASS` from `.env`.
 
-You should see a month calendar. Open **Companies** to see the sample clients. Open **Dashboard** for the month totals.
+You should see a month calendar. Open **Companies** to see the sample clients. Open **Dashboard** for the month totals. Those screens are in the [README screenshots](../README.md#screenshots).
 
 ## 9. Commands you will use later
 
@@ -269,13 +269,13 @@ sudo ufw status
 
 Allow OpenSSH **before** you enable the firewall, or you can lock yourself out of SSH.
 
-**The page loads, but sign-in fails or returns you to the login screen**
+**The page loads, but sign-in says "Origin is not allowed" or returns you to the login screen**
 
-`CLIENT_ORIGIN` in `.env` must match the browser address exactly. Then recreate the containers:
+`CLIENT_ORIGIN` in `.env` must match the browser address exactly. Then recreate the API container so it picks up `.env`:
 
 ```bash
 grep CLIENT_ORIGIN .env
-docker compose up -d --build
+docker compose up -d
 ```
 
 Also keep this line in `.env` while you are using plain `http://`:

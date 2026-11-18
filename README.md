@@ -6,11 +6,45 @@ The account is not registered in the app. The API compares the login form with `
 
 ## Screenshots
 
-Capture these after the first run and drop the files in `docs/` if you want them in the repo.
+These follow the path in [What to show](#what-to-show). The files are in [`demo/`](demo/).
 
-| Login | Calendar | Dashboard |
-| --- | --- | --- |
-| `docs/login.png` | `docs/calendar.png` | `docs/dashboard.png` |
+### Sign in
+
+The account comes from `ADMIN_USER` and `ADMIN_PASS`. There is no registration page.
+
+![Sign in page, with the username filled in](demo/Login_Page.png)
+
+### Companies
+
+A company name is unique. Renaming it does not change sessions already booked.
+
+![New company dialog on an empty Companies page](demo/Create_Company.png)
+
+Each company owns its service types. The fee belongs to that pair and is copied onto a session when you book it. Sessions already saved keep their own fee.
+
+![Add a service type and its expected fee](demo/Add_Service_Type.png)
+
+![Companies page with two clients and their fees](demo/Company_Service_Overview.png)
+
+### Calendar
+
+Click a day to add a session, or select an existing one to edit it. The fee is shown and is not editable. More than one session can sit on the same day.
+
+![New session dialog. The fee comes from the company and service type](demo/Create_Calendar_Event.png)
+
+![November calendar with a booked session](demo/Calendar_View.png)
+
+### Dashboard
+
+Totals use the fee stored on each session, for the month you select.
+
+![Dashboard for November 2026, with earnings, session count, average fee, and a per-company breakdown](demo/Dashboard_View.png)
+
+### Logs
+
+Each line in `server/logs/freelancetrack.log` is one JSON object. The API writes the same line to stdout.
+
+![JSON application log from a running stack](demo/Application_Log.png)
 
 ## Quick start
 
@@ -27,6 +61,10 @@ Open http://localhost:3030 and sign in with the user from `.env` (`demo` / `demo
 ## Changelog
 
 Keep this section current. A later change, including one made with AI, should add an entry here before the work is treated as done. See "Improve Repo Maintainability" in [AI_Assisted_Workflow.md](AI_Assisted_Workflow.md).
+
+### 1.2.2 — 2026-11-18
+
+- Added sign-in, companies, calendar, dashboard, and log screenshots under `demo/`, and linked them from this page.
 
 ### 1.2.1 — 2026-11-17
 
@@ -122,6 +160,7 @@ Errors use `{ "error": { "code", "message", "details" } }`. Validation errors ar
 client/     React UI, nginx config, client image
 server/     Express API, Pino logger, seed, API tests
 server/logs JSON log files when the API is running
+demo/       Screenshots linked from this page
 jmeter/     Load and soak plans, run by hand outside GitHub Actions
 security/   Fortify and Nexus IQ scripts used by the DEV code-scan stage
 .github/workflows/dev.yml        DEV demonstration pipeline

@@ -22,6 +22,8 @@ Edit `.env` if you do not want the example user. `JWT_SECRET` must be at least 1
 
 Leave `COOKIE_SECURE=false` while you use `http://localhost`. Set it to `true` only behind HTTPS, or the browser will drop the cookie.
 
+`CLIENT_ORIGIN` must be the exact address in the browser bar, including `http://` and the port, with no slash at the end. Docker reads it from `.env`. `http://localhost:3030` and `http://127.0.0.1:3030` are different origins. To allow more than one, separate them with commas.
+
 The example login is:
 
 - Username: `demo`
@@ -111,6 +113,8 @@ A create looks like this:
 
 The file rotates daily. Fourteen files are kept, and older ones are gzipped. `LOG_LEVEL` accepts `debug`, `info`, `warn`, `error`, and `silent`.
 
+![JSON lines in server/logs/freelancetrack.log after the stack is running](demo/Application_Log.png)
+
 Search a request by the `X-Run-Id` response header:
 
 ```bash
@@ -128,6 +132,12 @@ npm test --prefix server
 The tests do not use the Docker MongoDB. They start an in-memory server. The first run may download a MongoDB binary.
 
 ## Troubleshooting
+
+**Sign-in says "Origin is not allowed".** The address you opened does not match `CLIENT_ORIGIN`. Set that line in `.env` to the address in the browser bar, for example `http://192.168.1.20:3030`, then recreate the API container:
+
+```bash
+docker compose up -d
+```
 
 **The UI loads and login appears to succeed, then the calendar sends you back to login.** You opened the Vite app and the API on two origins without the proxy, or `COOKIE_SECURE=true` on plain HTTP. Use http://localhost:3030. Keep `COOKIE_SECURE=false` for local HTTP.
 
